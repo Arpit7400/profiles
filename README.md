@@ -1,4 +1,4 @@
-Here's a detailed `README.md` file explaining the API and its functionality:
+Certainly! Here's the full README.md file with the "Teacher Profile" section added:
 
 ```markdown
 # Student Management API
@@ -29,7 +29,7 @@ This API provides functionality for managing student, parent, teacher, and manag
 
 3. Make sure you have MongoDB installed and running on your local machine. You can download it from [here](https://www.mongodb.com/try/download/community).
 
-4. Configure MongoDB URLs for different profile types (Students, Parents, Teachers, Managements, Quizes) in the `app.py` file by setting the `app.config['MONGO_URI']` values accordingly.
+4. Configure MongoDB URLs for different profile types (Students, Parents, Teachers, Managements, Quizzes) in the `app.py` file by setting the `app.config['MONGO_URI']` values accordingly.
 
 5. Run the Flask application:
 
@@ -87,6 +87,40 @@ This API provides functionality for managing student, parent, teacher, and manag
 - **Description:** Retrieve the accuracy data for a student based on their quiz results.
 - **Response:** JSON with quiz accuracy data.
 
+### Management Profile
+
+#### Check Management User ID Uniqueness
+- **Endpoint:** `/check_management_user_id/<string:user_id>`
+- **Method:** GET
+- **Description:** Check if a management user ID is unique.
+- **Response:** JSON with the result indicating whether the user ID is unique.
+
+#### Get Management Profile by User ID
+- **Endpoint:** `/get_management_user/<string:user_id>`
+- **Method:** GET
+- **Description:** Retrieve a management user's profile using their user ID.
+- **Response:** JSON with the management user's profile data.
+
+#### Get All Management Profiles
+- **Endpoint:** `/get_all_management_profiles`
+- **Method:** GET
+- **Description:** Retrieve all management profiles.
+- **Response:** JSON with a list of all management profiles.
+
+#### Create Management Profile
+- **Endpoint:** `/create_management_profile`
+- **Method:** POST
+- **Description:** Create a new management profile with the provided information, including user ID, password, personal details, and more.
+- **Request Body:** JSON with management profile data.
+- **Response:** JSON with the created management profile data.
+
+#### Update Management Profile
+- **Endpoint:** `/update_management_profile/<string:user_id>`
+- **Method:** PUT
+- **Description:** Update a management user's profile data using their user ID.
+- **Request Body:** JSON with the updated management profile data.
+- **Response:** JSON with the updated management profile data.
+
 ### Parent Profile
 
 #### Get Parent Data by User ID or Email or Phone Number
@@ -115,7 +149,43 @@ This API provides functionality for managing student, parent, teacher, and manag
 - **Request Body:** JSON with the updated parent profile data.
 - **Response:** Success message.
 
-### Teacher Profile (Not implemented)
+### Teacher Profile
+
+#### Create Teacher Profile
+
+This method allows you to create a new teacher profile with the provided information.
+
+```python
+def create_teacher(user_data):
+    # ...
+```
+
+#### Get Teachers
+
+This method retrieves a list of all teacher profiles.
+
+```python
+def get_teachers():
+    # ...
+```
+
+#### Get Teacher by User ID
+
+This method retrieves a teacher's profile by providing their user ID.
+
+```python
+def get_teacher(user_id):
+    # ...
+```
+
+#### Update Teacher Profile
+
+This method allows you to update a teacher's profile data using their user ID.
+
+```python
+def update_teacher(user_id, user_data):
+    # ...
+```
 
 ## Contributing
 
@@ -132,4 +202,6 @@ If you want to contribute to this project, please follow these steps:
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 ```
 
-This README.md provides an overview of the API, its endpoints, installation instructions, and details on how to contribute. You can further customize it to include specific API usage examples and other relevant information as needed for your project.
+This README.md file now includes the "Teacher Profile" section along with the previously provided sections. You can use this updated file for
+
+ your project documentation.

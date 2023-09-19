@@ -48,10 +48,12 @@ mongo_m.db.management_profile.create_index([("personal_info.contact.phone", 1)],
 mongo_m.db.management_profile.create_index([("personal_info.contact.email", 1)], unique=True, partialFilterExpression={"personal_info.contact.email": {"$exists": True}})
 
 
+
+
 # Student Profile 
 
 # functions to support API's
-def is_user_id_unique(user_id):
+def is_student_user_id_unique(user_id):
     user = get_student(user_id)
     return user
 
@@ -139,7 +141,7 @@ def create_student_profile():
     hashed_password = hash_password(password)
     parents = request.form.get('parents', '')
 
-    if not is_user_id_unique(user_id):
+    if not is_student_user_id_unique(user_id):
         return jsonify({'error': 'User ID already exists'}), 400
     
     user_image = ''
@@ -348,6 +350,146 @@ def getting_accuracy(student_id):
 
 
 
+
+
+# Management Profile 
+
+# functions to support API's
+def is_management_user_id_unique(user_id):
+    user = get_management(user_id)
+    return user
+
+def get_management(user_id):
+    user = mongo_m.db.management_profile.find_one({'user_id': user_id})
+    if user:
+        user['_id'] = str(user['_id'])  # Convert ObjectId to a string
+    return jsonify(user)
+
+
+def get_managements():
+    return list(mongo_m.db.management_profile.find())
+
+# Create management profile 
+@app.route('/create_management_profile', methods=['POST'])
+def create_management_profile():
+    password = request.form.get('password')
+    retype_password = request.form.get('retype_password')
+    if password != retype_password:
+        return jsonify('message : Password does not match')
+    user_id = request.form.get('user_id', '')
+    username = request.form.get('username', '')
+    schoolkey = request.form.get('schoolkey')
+    gender = request.form.get('gender')
+    dob = request.form.get('dob')
+    user_class = request.form.get('user_class', '')
+    status_title = request.form.get('status_title', '')
+    about = request.form.get('about', '')
+    phone = request.form.get('phone', '')
+    email = request.form.get('email', '')
+    address = request.form.get('address', '')
+    hashed_password = hash_password(password)
+
+    if not is_management_user_id_unique(user_id):
+        return jsonify({'error': 'User ID already exists'}), 400
+    
+    user_image = ''
+    if request.form.get('image',''):
+        image = request.form.get('image','')
+        user_image = upload_image(image)
+
+    school_performance = {} 
+
+    user_data = {
+        "_id": str(ObjectId()),
+        'user_id':user_id,
+        'password': hashed_password,
+        'username': username,
+        'user_class': user_class,
+        'schoolkey': schoolkey,
+        'gender': gender,
+        'dob': dob,
+        'user_image': user_image,
+        'status_title': status_title,
+        'personal_info': {
+            'about': about,
+            'contact': {
+                'phone': phone,
+                'email': email,
+                'address': address
+            }
+        },
+        'school_performance': school_performance,
+    }
+    try:
+        inserted_id = mongo_m.db.management_profile.insert_one(user_data).inserted_id
+        inserted = mongo_m.db.management_profile.find_one({"_id": inserted_id})
+        return jsonify({"_id": str(inserted["_id"])})
+    except Exception as e:
+        return jsonify({"error": "Error occurred while creating the class"}), 500
+
+# Get management profile using user_id
+@app.route('/get_management_user/<string:user_id>', methods=['GET'])
+def get__management_user_profile(user_id):
+    return get_management(user_id)
+
+# update user profiledata requires user_id which is Unique
+@app.route('/update_management_profile/<string:user_id>', methods=['PUT'])
+def update_management_profile(user_id):
+    try:
+        user_data = mongo_m.db.management_profile.find_one({'user_id': user_id})
+        _id = user_data['_id']
+        # Get user data from the request
+        username = request.form.get('username', user_data['username'])
+        password = request.form.get('password', user_data['password'])
+        hashed_password = hash_password(password)
+        user_id = request.form.get('user_id', user_data['user_id'])
+
+        user_class = request.form.get('user_class', user_data['user_class'])
+        status_title = request.form.get('status_title', user_data['status_title'])
+        about = request.form.get('about', user_data['personal_info']['about'])
+        phone = request.form.get('phone', user_data['personal_info']['contact']['phone'])
+        email = request.form.get('email', user_data['personal_info']['contact']['email'])
+        address = request.form.get('address', user_data['personal_info']['contact']['address'])
+        school_performance = request.form.get('school_performance', user_data['school_performance'])
+
+        # Optional: Handle the user image update
+        user_image = ''
+        if request.form.get('image', user_data['user_image']):
+            image = request.form.get('image','')
+            user_image = upload_image(image)
+
+        user_data ={
+                'user_id':user_id,
+                'username': username,
+                'password':hashed_password,
+                'user_class': user_class,
+                'user_image': user_image,
+                'status_title': status_title,
+                'personal_info': {
+                    'about': about,
+                    'contact': {
+                        'phone': phone,
+                        'email': email,
+                        'address': address
+                    }
+                },
+                'school_performance': school_performance,
+            }
+        result = mongo_m.db.management_profile.update_one({"_id":_id},
+                                                    {"$set": user_data})
+        if result.modified_count == 0:
+            return jsonify({"error": "management_profile not found"}), 404
+        updated_entity = mongo_m.db.management_profile.find_one({"_id": _id})
+        return jsonify(updated_entity), 200
+    except errors.PyMongoError as e:
+        return jsonify({"error": str(e)}), 500
+    
+
+
+
+
+
+
 # Parents profile
 parent_profile_collection=mongo_p.db.parent_profile
 
@@ -371,9 +513,6 @@ def fetch_parent_data(search_value):
         return jsonify({'error': 'User does not exist'}), 404
 
 
-
-
-
 #get_parent_profile
 @app.route('/get_parent_profile', methods=['GET'])
 def get_parent_profile():
@@ -382,7 +521,6 @@ def get_parent_profile():
     session['parent_useridname'] = parent_useridname
     session_parent_useridname = session.get('parent_useridname', '')
     parent = get_parent_by_password_and_useridname(parent_password, parent_useridname)
-   
 
     #fetch child data
     # child_data=get_student_data_by_parent_useridname(parent_useridname)
@@ -499,8 +637,6 @@ def update_parent_profile(useridname):
 
     return jsonify({"message": "Parent information updated successfully"}), 200
 
-
-
 #database support function
 
 # save parent info in database
@@ -535,11 +671,9 @@ def create_parent(parent_useridname,parent_hashed_password,parent_name, filename
     return parent
 
 
-
 #get all parent info
 def get_parents():
     return list(parent_profile_collection.find({}))
-
 
 #get parent by id
 def get_parent_by_password_and_useridname(password, useridname):
@@ -575,7 +709,267 @@ def update_parent(parent_data):
 
 
 
-# Teacher 
+
+# Teacher Profile
+# --------------- DATABASE METHODS --------------
+
+def create_teacher(user_data):
+
+    hashed_password = generate_password_hash(user_data['profile']['useridname_password']['password'])
+
+    mongo_t.db.teacher_profile.insert_one({
+        'username': user_data['username'],
+        'languages': user_data['languages'],
+        'user_image': user_data['user_image'],
+
+        'profile': {
+            'status': {
+                'user_designation': user_data['profile']['status']['user_designation'],
+                'user_description': user_data['profile']['status']['user_description']
+            },
+            'about': user_data['profile']['about'],
+            'useridname_password': {
+                'userid_name': user_data['profile']['useridname_password']['userid_name'],
+                'password': hashed_password
+            },
+            'contact': {
+                'phone': user_data['profile']['contact']['phone'],
+                'email': user_data['profile']['contact']['email'],
+                'address': {
+                    'house_no': user_data['profile']['contact']['address']['house_no'],
+                    'street': user_data['profile']['contact']['address']['street'],
+                    'postal_code': user_data['profile']['contact']['address']['postal_code'],
+                    'city': user_data['profile']['contact']['address']['city'],
+                    'state': user_data['profile']['contact']['address']['state']
+                }
+            }
+        }
+    })
+
+def get_teachers():
+    return list(mongo_t.db.teacher_profile.find({}))
+
+def get_teacher(user_id):
+    user = mongo_t.db.teacher_profile.find_one({'_id': ObjectId(user_id)})
+    return user if user else None
+
+def update_teacher(user_id, user_data):
+
+    hashed_password = generate_password_hash(user_data['profile']['useridname_password']['password'])
+
+    mongo_t.db.teacher_profile.update_one(
+        {'_id': ObjectId(user_id)},
+        {'$set': {
+            'username': user_data['username'],
+            'languages': user_data['languages'],
+            'user_image': user_data['user_image'],
+
+            'profile': {
+                'status': {
+                    'user_designation': user_data['profile']['status']['user_designation'],
+                    'user_description': user_data['profile']['status']['user_description']
+                },
+                'about': user_data['profile']['about'],
+                'useridname_password': {
+                    'userid_name': user_data['profile']['useridname_password']['userid_name'],
+                    'password': hashed_password
+                },
+                'contact': {
+                    'phone': user_data['profile']['contact']['phone'],
+                    'email': user_data['profile']['contact']['email'],
+                    'address': {
+                        'house_no': user_data['profile']['contact']['address']['house_no'],
+                        'street': user_data['profile']['contact']['address']['street'],
+                        'postal_code': user_data['profile']['contact']['address']['postal_code'],
+                        'city': user_data['profile']['contact']['address']['city'],
+                        'state': user_data['profile']['contact']['address']['state']
+                    }
+                }
+            }
+        }}
+    )
+
+
+# --------------- API METHODS --------------
+
+@app.route('/get_teachers', methods=['GET'])
+def get_teachers():
+    teachers = get_teachers()
+
+    for teacher in teachers:
+        teacher['_id'] = str(teacher['_id'])
+        
+    return jsonify(teachers)
+
+@app.route('/get_teacher/<string:user_id>', methods=['GET'])
+def get_teacher_profile(user_id):
+    user = get_teacher(user_id)
+    if user:
+        user['_id'] = str(user['_id'])
+    else:
+        return jsonify({'error': 'User does not exists!!'})
+    return jsonify(user)
+
+
+@app.route('/create_teacher', methods=['GET', 'POST'])
+def create_teacher_profile():
+    username = request.form.get('username', '')
+    languages = request.form.get('languages', '')
+
+    user_image = ''
+    if request.form.get('image',''):
+        image = request.form.get('image','')
+        user_image = upload_image(image)
+
+    user_designation = request.form.get('user_designation', '')
+    user_description = request.form.get('user_description', '')
+
+    about = request.form.get('user_about', '')
+
+    userid_name = request.form.get('userid_name', '')
+    password = request.form.get('password', '')
+    if len(password) < 8:
+        return jsonify({'error': 'Password must be from 8 characters!!'}), 404
+
+    phone = request.form.get('phone', '')
+    email = request.form.get('email', '')
+
+    house_no = request.form.get('house_no', '')
+    street = request.form.get('street', '')
+    postal_code = request.form.get('postal_code', '')
+    city = request.form.get('city', '')
+    state = request.form.get('state', '')
+
+    status = {
+        'user_designation': user_designation,
+        'user_description': user_description
+    }
+
+    useridname_password = {
+        'userid_name': userid_name,
+        'password': password
+    }
+
+    address = {
+        'house_no': house_no,
+        'street': street,
+        'postal_code': postal_code,
+        'city': city,
+        'state': state
+    }
+
+    contact = {
+        'phone': phone,
+        'email': email,
+        'address': address
+    }
+
+    profile = {
+        'status': status,
+        'about': about,
+        'useridname_password': useridname_password,
+        'contact': contact
+    }
+
+    user_data = {
+        'username': username,
+        'languages': languages,
+        'user_image': user_image,
+        'profile': profile
+    }
+
+    create_teacher(user_data)
+
+    return jsonify(user_data)
+
+
+@app.route('/update_teacher/<string:user_id>', methods=['PUT', 'POST'])
+def update_user_profile(user_id):
+    user_data = get_teacher(user_id)
+
+    if not user_data:
+        return jsonify({"error": "User not found"}), 404
+
+
+    username = request.form.get('username', user_data['username'])
+    languages = request.form.get('languages', user_data['languages'])
+
+    user_designation = request.form.get('user_designation', user_data['profile']['status']['user_designation'])
+    user_description = request.form.get('user_description', user_data['profile']['status']['user_description'])
+
+    about = request.form.get('user_about', user_data['profile']['about'])
+
+    userid_name = request.form.get('userid_name',  user_data['profile']['useridname_password']['userid_name'])
+    password = request.form.get('password',  user_data['profile']['useridname_password']['password'])
+
+    phone = request.form.get('phone', user_data['profile']['contact']['phone'])
+    email = request.form.get('email', user_data['profile']['contact']['email'])
+
+    house_no = request.form.get('house_no', user_data['profile']['contact']['address']['house_no'])
+    street = request.form.get('street', user_data['profile']['contact']['address']['street'])
+    postal_code = request.form.get('postal_code', user_data['profile']['contact']['address']['postal_code'])
+    city = request.form.get('city', user_data['profile']['contact']['address']['city'])
+    state = request.form.get('state', user_data['profile']['contact']['address']['state'])
+
+    address = {
+        'house_no': house_no,
+        'street': street,
+        'postal_code': postal_code,
+        'city': city,
+        'state': state
+    }
+
+    user_image = ''
+    if request.form.get('image',''):
+        image = request.form.get('image','')
+        user_image = upload_image(image)
+
+    status = {
+        'user_designation': user_designation,
+        'user_description': user_description
+    }
+
+    useridname_password = {
+        'userid_name': userid_name,
+        'password': password
+    }
+
+    address = {
+        'house_no': house_no,
+        'street': street,
+        'postal_code': postal_code,
+        'city': city,
+        'state': state
+    }
+
+    contact = {
+        'phone': phone,
+        'email': email,
+        'address': address
+    }
+
+    profile = {
+        'status': status,
+        'about': about,
+        'useridname_password': useridname_password,
+        'contact': contact
+    }
+
+    new_user_data = {
+        'username': username,
+        'languages': languages,
+        'user_image': user_image,
+
+        'profile': profile
+    }
+
+
+    update_teacher(user_id, new_user_data)
+
+    updated_user = get_teacher(user_id)
+    updated_user['_id'] = str(updated_user['_id'])
+
+    return jsonify(updated_user)
 
 
 
