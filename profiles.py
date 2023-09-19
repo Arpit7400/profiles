@@ -67,28 +67,55 @@ def search_by_mobile_number(number):
     query = {
         "personal_info.contact.phone": number
     }
-    matching_documents = mongo_s.db.student_profile.find(query)
-    result = [document for document in matching_documents]
-    return result
-
+    if query:
+        matching_documents = mongo_s.db.student_profile.find(query)
+        result = [document for document in matching_documents]
+        return result
+    query = {
+        'profile.contact.phone': number
+    }
+    if query:
+        matching_documents = mongo_t.db.teacher_profile.find(query)
+        result = [document for document in matching_documents]
+        return result
+    query = {
+        "personal_info.contact.parent_phone": number
+    }
+    if query:
+        matching_documents = mongo_p.db.parent_profile.find(query)
+        result = [document for document in matching_documents]
+        return result
 
 def search_by_email(email):
     query = {
         "personal_info.contact.email": email
     }
-    matching_documents = mongo_s.db.student_profile.find(query)
-    result = [document for document in matching_documents]
-    return result
+    if query:
+        matching_documents = mongo_s.db.student_profile.find(query)
+        result = [document for document in matching_documents]
+        return result
+    query = {
+        'profile.contact.email': email
+    }
+    if query:
+        matching_documents = mongo_t.db.teacher_profile.find(query)
+        result = [document for document in matching_documents]
+        return result
+    query = {
+        "personal_info.contact.parent_email": email
+    }
+    if query:
+        matching_documents = mongo_p.db.parent_profile.find(query)
+        result = [document for document in matching_documents]
+        return result
 
 def search_by_username_or_user_id(user):
     result = []
-    # First, search for user IDs
     user_id_query = {
         "user_id": user
     }
     user_id_matching_documents = mongo_s.db.student_profile.find(user_id_query)
     result.extend(user_id_matching_documents)
-    # Then, search for usernames
     username_query = {
         "username": user
     }
@@ -144,6 +171,7 @@ def create_student_profile():
     if not is_student_user_id_unique(user_id):
         return jsonify({'error': 'User ID already exists'}), 400
     
+    data = get_students()
     user_image = ''
     if request.form.get('image',''):
         image = request.form.get('image','')
@@ -154,37 +182,48 @@ def create_student_profile():
     Interest = {}
     parents = {}
 
-    user_data = {
-        "_id": str(ObjectId()),
-        'user_id':user_id,
-        'password': hashed_password,
-        'username': username,
-        'user_class': user_class,
-        'schoolkey': schoolkey,
-        'gender': gender,
-        'dob': dob,
-        'user_image': user_image,
-        'status_title': status_title,
-        'status_description': status_description,
-        'personal_info': {
-            'about': about,
-            'contact': {
-                'phone': phone,
-                'email': email,
-                'address': address
-            }
-        },
-        'performance': performance,
-        'Attendance': Attendance,
-        'Interest': Interest,
-        'parents': parents
-    }
-    try:
-        inserted_id = mongo_s.db.student_profile.insert_one(user_data).inserted_id
-        inserted = mongo_s.db.student_profile.find_one({"_id": inserted_id})
-        return jsonify({"_id": str(inserted["_id"])})
-    except Exception as e:
-        return jsonify({"error": "Error occurred while creating the class"}), 500
+    email_exists = any(item['personal_info']['contact']['email'] == email for item in data)
+    phone_exists = any(item['personal_info']['contact']['phone'] == phone for item in data)
+    useridname=any(item['user_id'] == user_id for item in data)
+
+    if email_exists:
+            return jsonify({"message": "This email is already exist"}), 400
+    if phone_exists:
+            return jsonify({"message": "This phone number is already exist"}), 400
+    if useridname:
+            return jsonify({"message": "This useridname is already exist"}), 400
+    else:
+        user_data = {
+            "_id": str(ObjectId()),
+            'user_id':user_id,
+            'password': hashed_password,
+            'username': username,
+            'user_class': user_class,
+            'schoolkey': schoolkey,
+            'gender': gender,
+            'dob': dob,
+            'user_image': user_image,
+            'status_title': status_title,
+            'status_description': status_description,
+            'personal_info': {
+                'about': about,
+                'contact': {
+                    'phone': phone,
+                    'email': email,
+                    'address': address
+                }
+            },
+            'performance': performance,
+            'Attendance': Attendance,
+            'Interest': Interest,
+            'parents': parents
+        }
+        try:
+            inserted_id = mongo_s.db.student_profile.insert_one(user_data).inserted_id
+            inserted = mongo_s.db.student_profile.find_one({"_id": inserted_id})
+            return jsonify({"_id": str(inserted["_id"])})
+        except Exception as e:
+            return jsonify({"error": "Error occurred while creating the class"}), 500
 
 # Get student profile using user_id
 @app.route('/get_user/<string:user_id>', methods=['GET'])
@@ -398,34 +437,45 @@ def create_management_profile():
         user_image = upload_image(image)
 
     school_performance = {} 
+    data = get_managements()
+    email_exists = any(item['personal_info']['contact']['email'] == email for item in data)
+    phone_exists = any(item['personal_info']['contact']['phone'] == phone for item in data)
+    useridname=any(item['user_id'] == user_id for item in data)
 
-    user_data = {
-        "_id": str(ObjectId()),
-        'user_id':user_id,
-        'password': hashed_password,
-        'username': username,
-        'user_class': user_class,
-        'schoolkey': schoolkey,
-        'gender': gender,
-        'dob': dob,
-        'user_image': user_image,
-        'status_title': status_title,
-        'personal_info': {
-            'about': about,
-            'contact': {
-                'phone': phone,
-                'email': email,
-                'address': address
-            }
-        },
-        'school_performance': school_performance,
-    }
-    try:
-        inserted_id = mongo_m.db.management_profile.insert_one(user_data).inserted_id
-        inserted = mongo_m.db.management_profile.find_one({"_id": inserted_id})
-        return jsonify({"_id": str(inserted["_id"])})
-    except Exception as e:
-        return jsonify({"error": "Error occurred while creating the class"}), 500
+    if email_exists:
+            return jsonify({"message": "This email is already exist"}), 400
+    if phone_exists:
+            return jsonify({"message": "This phone number is already exist"}), 400
+    if useridname:
+            return jsonify({"message": "This useridname is already exist"}), 400
+    else:
+        user_data = {
+            "_id": str(ObjectId()),
+            'user_id':user_id,
+            'password': hashed_password,
+            'username': username,
+            'user_class': user_class,
+            'schoolkey': schoolkey,
+            'gender': gender,
+            'dob': dob,
+            'user_image': user_image,
+            'status_title': status_title,
+            'personal_info': {
+                'about': about,
+                'contact': {
+                    'phone': phone,
+                    'email': email,
+                    'address': address
+                }
+            },
+            'school_performance': school_performance,
+        }
+        try:
+            inserted_id = mongo_m.db.management_profile.insert_one(user_data).inserted_id
+            inserted = mongo_m.db.management_profile.find_one({"_id": inserted_id})
+            return jsonify({"_id": str(inserted["_id"])})
+        except Exception as e:
+            return jsonify({"error": "Error occurred while creating the class"}), 500
 
 # Get management profile using user_id
 @app.route('/get_management_user/<string:user_id>', methods=['GET'])
@@ -585,7 +635,9 @@ def create_parent_profile():
         if useridname:
               return jsonify({"message": "This useridname is already exist"}), 400
         else:
-            create_parent(parent_useridname,parent_hashed_password,parent_name, user_image,parent_about, parent_phone, parent_email, parent_StreetAddress,parent_age,parent_gender,parent_city,parent_PostalCode,parent_country,parent_Apartment,parent_state)
+            create_parent(parent_useridname,parent_hashed_password,parent_name, user_image,parent_about, 
+                          parent_phone, parent_email, parent_StreetAddress,parent_age,parent_gender,parent_city,
+                          parent_PostalCode,parent_country,parent_Apartment,parent_state)
 
         return jsonify({"message": "Parent profile created successfully"}), 200
     except Exception as e:
@@ -877,8 +929,19 @@ def create_teacher_profile():
         'user_image': user_image,
         'profile': profile
     }
+    data = get_teachers()
+    email_exists = any(item['personal_info']['contact']['email'] == email for item in data)
+    phone_exists = any(item['personal_info']['contact']['phone'] == phone for item in data)
+    useridname=any(item['user_id'] == userid_name for item in data)
 
-    create_teacher(user_data)
+    if email_exists:
+            return jsonify({"message": "This email is already exist"}), 400
+    if phone_exists:
+            return jsonify({"message": "This phone number is already exist"}), 400
+    if useridname:
+            return jsonify({"message": "This useridname is already exist"}), 400
+    else:   
+        create_teacher(user_data)
 
     return jsonify(user_data)
 
