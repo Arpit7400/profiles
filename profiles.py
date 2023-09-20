@@ -286,7 +286,7 @@ def create_student_profile():
         try:
             inserted_id = mongo_s.db.student_profile.insert_one(user_data).inserted_id
             inserted = mongo_s.db.student_profile.find_one({"_id": inserted_id})
-            return jsonify({"_id": str(inserted["_id"]), 'user_id':user_id,})
+            return jsonify({"_id": str(inserted["_id"]), 'user_id':inserted["user_id"], "role":inserted['role']})
         except Exception as e:
             return jsonify({"error": "Error occurred while creating the class"}), 500
 
@@ -724,11 +724,12 @@ def create_parent_profile():
         if useridname:
               return jsonify({"error": "This useridname is already exist"}), 400
         else:
-            create_parent(parent_useridname,parent_hashed_password,parent_name, user_image,parent_about, 
+            inserted =create_parent(parent_useridname,parent_hashed_password,parent_name, user_image,parent_about, 
                           parent_phone, parent_email, parent_StreetAddress,parent_age,parent_gender,parent_city,
                           parent_PostalCode,parent_country,parent_Apartment,parent_state)
 
-        return jsonify({"message": "Parent profile created successfully"}), 200
+        return jsonify({"message": "Parent profile created successfully",
+                         "_id": str(inserted["_id"]), "role":inserted['role'], "user_id":inserted['user_id']}), 200
     except Exception as e:
         return jsonify({"error": "An unexpected error occurred"}), 500
 
@@ -788,7 +789,8 @@ def create_parent(parent_useridname,parent_hashed_password,parent_name, filename
     parent_profile_collection.create_index([('parent_useridname', 1)], unique=True)
     parent_profile_collection.create_index([('personal_info.contact.parent_email', 1)], unique=True)
     parent_profile_collection.create_index([('personal_info.contact.parent_phone', 1)], unique=True)
-    parent = parent_profile_collection.insert_one({
+    inserted_id = parent_profile_collection.insert_one({
+        "_id": str(ObjectId()),
         "parent_useridname":parent_useridname,
         "parent_hashed_password":parent_hashed_password,
         'parent_name': parent_name,
@@ -812,9 +814,9 @@ def create_parent(parent_useridname,parent_hashed_password,parent_name, filename
                                    }
             }
         }
-    })
-    return parent
-
+    }).inserted_id
+    inserted = mongo_m.db.management_profile.find_one({"_id": inserted_id})
+    return inserted
 
 #get all parent info
 def get_parents():
@@ -862,7 +864,8 @@ def create_teacher(user_data):
 
     hashed_password = generate_password_hash(user_data['profile']['useridname_password']['password'])
 
-    mongo_t.db.teacher_profile.insert_one({
+    inserted_id = mongo_t.db.teacher_profile.insert_one({
+        "_id": str(ObjectId()),
         'username': user_data['username'],
         'languages': user_data['languages'],
         'user_image': user_data['user_image'],
@@ -890,7 +893,9 @@ def create_teacher(user_data):
                 }
             }
         }
-    })
+    }).inserted_id
+    inserted = mongo_m.db.management_profile.find_one({"_id": inserted_id})
+    return inserted
 
 def get_teachers():
     return list(mongo_t.db.teacher_profile.find({}))
@@ -1046,9 +1051,10 @@ def create_teacher_profile():
     if useridname:
             return jsonify({"error": "This useridname is already exist"}), 400
     else:   
-        create_teacher(user_data)
+        inserted = create_teacher(user_data)
 
-    return jsonify(user_data)
+    return jsonify({"message":"Teacher created successfully",  "_id": str(inserted["_id"]),
+                     "role":inserted['role'], "user_id":inserted['user_id']})
 
 
 @app.route('/update_teacher/<string:user_id>', methods=['PUT', 'POST'])
