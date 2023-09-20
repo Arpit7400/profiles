@@ -136,7 +136,7 @@ def upload_image(image):
         image.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
         return jsonify({"message": "Image uploaded successfully.", "filename": filename}), 200
     else:
-        return jsonify({"message": "Invalid image or file format."}), 400
+        return jsonify({"error": "Invalid image or file format."}), 400
 
 
 def hash_password(password):
@@ -176,7 +176,7 @@ def create_student_profile():
     
     retype_password = request.form.get('retype_password')
     if password != retype_password:
-        return jsonify('message : Password does not match')
+        return jsonify('error : Password does not match')
     user_id = request.form.get('user_id', '')
     username = request.form.get('username', '')
     schoolkey = request.form.get('schoolkey')
@@ -202,7 +202,7 @@ def create_student_profile():
             if image and allowed_file(image.filename):
                 user_image = upload_image(image)
             else:
-                return jsonify({"message": "Invalid image or file format."}), 400
+                return jsonify({"error": "Invalid image or file format."}), 400
 
     performance = {} 
     Attendance = {}
@@ -214,11 +214,11 @@ def create_student_profile():
     useridname=any(item['user_id'] == user_id for item in data)
 
     if email_exists:
-            return jsonify({"message": "This email is already exist"}), 400
+            return jsonify({"error": "This email is already exist"}), 400
     if phone_exists:
-            return jsonify({"message": "This phone number is already exist"}), 400
+            return jsonify({"error": "This phone number is already exist"}), 400
     if useridname:
-            return jsonify({"message": "This useridname is already exist"}), 400
+            return jsonify({"error": "This useridname is already exist"}), 400
     else:
         user_data = {
             "_id": str(ObjectId()),
@@ -288,7 +288,7 @@ def update_student_profile(user_id):
                 if image and allowed_file(image.filename):
                     user_image = upload_image(image)
                 else:
-                    return jsonify({"message": "Invalid image or file format."}), 400
+                    return jsonify({"error": "Invalid image or file format."}), 400
 
         user_data ={
                 'user_id':user_id,
@@ -340,7 +340,7 @@ def search(query):
                 result = search_by_username_or_user_id(query)
             return jsonify(result), 200
     except Exception as e:
-        return jsonify({"message": "An error occurred.", "error": str(e)}), 500
+        return jsonify({"error": "An error occurred.", "error": str(e)}), 500
 
 
 # setting status of quiz after click by user on quiz 
@@ -392,12 +392,12 @@ def update_student_quiz_data(quiz_id, student_id, result, click):
 
                 return jsonify({"message": "Student quiz data updated successfully."}), 200
             else:
-                return jsonify({"message": "Quiz not found in student data."}), 404
+                return jsonify({"error": "Quiz not found in student data."}), 404
         else:
-            return jsonify({"message": "Student not found."}), 404
+            return jsonify({"error": "Student not found."}), 404
 
     except Exception as e:
-        return jsonify({"message": "An error occurred.", "error": str(e)}), 500
+        return jsonify({"error": "An error occurred.", "error": str(e)}), 500
 
 
 # getting accuracy of student
@@ -414,7 +414,7 @@ def getting_accuracy(student_id):
                 continue
         return jsonify(result), 200
     except Exception as e:
-        return jsonify({"message": "An error occurred.", "error": str(e)}), 500
+        return jsonify({"error": "An error occurred.", "error": str(e)}), 500
 
 
 
@@ -446,10 +446,7 @@ def create_management_profile():
         return jsonify('error : Not valid password')
     retype_password = request.form.get('retype_password')
     if password != retype_password:
-        return jsonify('message : Password does not match')
-    retype_password = request.form.get('retype_password')
-    if password != retype_password:
-        return jsonify('message : Password does not match')
+        return jsonify('error : Password does not match')
     user_id = request.form.get('user_id', '')
     username = request.form.get('username', '')
     schoolkey = request.form.get('schoolkey')
@@ -472,7 +469,7 @@ def create_management_profile():
             if image and allowed_file(image.filename):
                 user_image = upload_image(image)
             else:
-                return jsonify({"message": "Invalid image or file format."}), 400
+                return jsonify({"error": "Invalid image or file format."}), 400
 
     school_performance = {} 
     data = get_managements()
@@ -481,11 +478,11 @@ def create_management_profile():
     useridname=any(item['user_id'] == user_id for item in data)
 
     if email_exists:
-            return jsonify({"message": "This email is already exist"}), 400
+            return jsonify({"error": "This email is already exist"}), 400
     if phone_exists:
-            return jsonify({"message": "This phone number is already exist"}), 400
+            return jsonify({"error": "This phone number is already exist"}), 400
     if useridname:
-            return jsonify({"message": "This useridname is already exist"}), 400
+            return jsonify({"error": "This useridname is already exist"}), 400
     else:
         user_data = {
             "_id": str(ObjectId()),
@@ -547,7 +544,7 @@ def update_management_profile(user_id):
                 if image and allowed_file(image.filename):
                     user_image = upload_image(image)
                 else:
-                    return jsonify({"message": "Invalid image or file format."}), 400
+                    return jsonify({"error": "Invalid image or file format."}), 400
 
         user_data ={
                 'user_id':user_id,
@@ -645,7 +642,7 @@ def create_parent_profile():
             return jsonify('error : Not valid password')
         retype_password = request.form.get('retype_password')
         if parent_password != retype_password:
-            return jsonify('message : Password does not match')
+            return jsonify('error : Password does not match')
         parent_useridname=request.form.get("parent_useridname", '')
         parent_password=request.form.get("parent_password", '')
         parent_name = request.form.get('parent_name', '')
@@ -672,18 +669,18 @@ def create_parent_profile():
                 if image and allowed_file(image.filename):
                     user_image = upload_image(image)
                 else:
-                    return jsonify({"message": "Invalid image or file format."}), 400
+                    return jsonify({"error": "Invalid image or file format."}), 400
 
         email_exists = any(item['personal_info']['contact']['parent_email'] == parent_email for item in data)
         phone_exists = any(item['personal_info']['contact']['parent_phone'] == parent_phone for item in data)
         useridname=any(item['parent_useridname'] == parent_useridname for item in data)
 
         if email_exists:
-              return jsonify({"message": "This email is already exist"}), 400
+              return jsonify({"error": "This email is already exist"}), 400
         if phone_exists:
-              return jsonify({"message": "This phone number is already exist"}), 400
+              return jsonify({"error": "This phone number is already exist"}), 400
         if useridname:
-              return jsonify({"message": "This useridname is already exist"}), 400
+              return jsonify({"error": "This useridname is already exist"}), 400
         else:
             create_parent(parent_useridname,parent_hashed_password,parent_name, user_image,parent_about, 
                           parent_phone, parent_email, parent_StreetAddress,parent_age,parent_gender,parent_city,
@@ -729,7 +726,7 @@ def update_parent_profile(useridname):
                 user_image = upload_image(image)
                 parent_data['image'] = user_image
             else:
-                return jsonify({"message": "Invalid image or file format."}), 400
+                return jsonify({"error": "Invalid image or file format."}), 400
 
      # Update password if provided
     new_password = request.form.get('new_password')
@@ -924,7 +921,7 @@ def create_teacher_profile():
     
     retype_password = request.form.get('retype_password')
     if password != retype_password:
-        return jsonify('message : Password does not match')
+        return jsonify('error : Password does not match')
     username = request.form.get('username', '')
     languages = request.form.get('languages', '')
 
@@ -934,7 +931,7 @@ def create_teacher_profile():
             if image and allowed_file(image.filename):
                 user_image = upload_image(image)
             else:
-                return jsonify({"message": "Invalid image or file format."}), 400
+                return jsonify({"error": "Invalid image or file format."}), 400
 
     user_designation = request.form.get('user_designation', '')
     user_description = request.form.get('user_description', '')
@@ -998,11 +995,11 @@ def create_teacher_profile():
     useridname=any(item['user_id'] == userid_name for item in data)
 
     if email_exists:
-            return jsonify({"message": "This email is already exist"}), 400
+            return jsonify({"error": "This email is already exist"}), 400
     if phone_exists:
-            return jsonify({"message": "This phone number is already exist"}), 400
+            return jsonify({"error": "This phone number is already exist"}), 400
     if useridname:
-            return jsonify({"message": "This useridname is already exist"}), 400
+            return jsonify({"error": "This useridname is already exist"}), 400
     else:   
         create_teacher(user_data)
 
@@ -1051,7 +1048,7 @@ def update_user_profile(user_id):
             if image and allowed_file(image.filename):
                 user_image = upload_image(image)
             else:
-                return jsonify({"message": "Invalid image or file format."}), 400
+                return jsonify({"error": "Invalid image or file format."}), 400
 
     status = {
         'user_designation': user_designation,
