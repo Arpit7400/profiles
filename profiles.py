@@ -172,6 +172,11 @@ def validate_password(password):
      return True
 
 
+@app.route('/login', methods = [''])
+
+
+
+
 # Create student profile 
 @app.route('/create_student_profile', methods=['POST'])
 def create_student_profile():
@@ -494,6 +499,7 @@ def create_management_profile():
             'user_id':user_id,
             'password': hashed_password,
             'username': username,
+            'role':"management",
             'user_class': user_class,
             'schoolkey': schoolkey,
             'gender': gender,
@@ -756,6 +762,7 @@ def create_parent(parent_useridname,parent_hashed_password,parent_name, filename
         "parent_hashed_password":parent_hashed_password,
         'parent_name': parent_name,
         "parent_age":parent_age,
+        "role":"parent",
         "parent_gender":parent_gender,
         'parent_image': filename,
         'personal_info': {
@@ -828,6 +835,7 @@ def create_teacher(user_data):
         'username': user_data['username'],
         'languages': user_data['languages'],
         'user_image': user_data['user_image'],
+        'role': "teacher",
 
         'profile': {
             'status': {
