@@ -134,7 +134,8 @@ def upload_image(image):
     if image and allowed_file(image.filename):
         filename = f"{ObjectId()}.{image.filename}"
         image.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        return jsonify({"message": "Image uploaded successfully.", "filename": filename}), 200
+        # return jsonify({"message": "Image uploaded successfully.", "filename": filename}), 200
+        return filename
     else:
         return jsonify({"error": "Invalid image or file format."}), 400
 
