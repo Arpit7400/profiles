@@ -1,4 +1,3 @@
-import random
 from flask import Flask, jsonify, request, session
 from pymongo import  errors
 import os
@@ -13,6 +12,9 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'static'
 
 # initializing Database
+app.config["MONGO_URI"] = "mongodb://localhost:27017/Curriculum"
+mongo = PyMongo(app)
+
 app.config["MONGO_URI"] = "mongodb://localhost:27017/Students"
 mongo_s = PyMongo(app)
 
@@ -48,6 +50,14 @@ mongo_t.db.teacher_profile.create_index([("personal_info.contact.email", 1)], un
 mongo_m.db.management_profile.create_index([("user_id", 1)], unique=True)
 mongo_m.db.management_profile.create_index([("personal_info.contact.phone", 1)], unique=True, partialFilterExpression={"personal_info.contact.phone": {"$exists": True}})
 mongo_m.db.management_profile.create_index([("personal_info.contact.email", 1)], unique=True, partialFilterExpression={"personal_info.contact.email": {"$exists": True}})
+
+
+
+# fetching all clases
+@app.route('/get_all_clases', methods = ['GET'])
+def get_all_classes():
+     
+
 
 
 
@@ -140,9 +150,6 @@ def upload_image(image):
     else:
         return jsonify({"error": "Invalid image or file format."}), 400
 
-# For generating unique code for connection
-def generate_unique_code():
-    return ''.join(random.choices('0123456789', k=6))
 
 def hash_password(password):
     # Create a new SHA-256 hash object
@@ -177,15 +184,11 @@ def create_student_profile():
     password = request.form.get('password')
     print(password)
     if not validate_password(password):
-        return jsonify('error : Not valid password')
-
-    code = generate_unique_code()
-    while code in mongo_s.db.student_profile.find_one({'unique_code': code}):
-         code = generate_unique_code()
+        return jsonify({"error": "Not valid Password."}), 400
     
     retype_password = request.form.get('retype_password')
     if password != retype_password:
-        return jsonify('error : Password does not match')
+        return jsonify({"error": "Password not matched."}), 400
     user_id = request.form.get('user_id', '')
     username = request.form.get('username', '')
     schoolkey = request.form.get('schoolkey')
@@ -216,6 +219,7 @@ def create_student_profile():
     performance = {} 
     Attendance = {}
     Interest = {}
+    parents = {}
 
     email_exists = any(item['personal_info']['contact']['email'] == email for item in data)
     phone_exists = any(item['personal_info']['contact']['phone'] == phone for item in data)
@@ -232,7 +236,6 @@ def create_student_profile():
             "_id": str(ObjectId()),
             'user_id':user_id,
             'password': hashed_password,
-            'unique_code': code,
             'username': username,
             'user_class': user_class,
             'schoolkey': schoolkey,
@@ -252,7 +255,7 @@ def create_student_profile():
             'performance': performance,
             'Attendance': Attendance,
             'Interest': Interest,
-            # 'parents': parents
+            'parents': parents
         }
         try:
             inserted_id = mongo_s.db.student_profile.insert_one(user_data).inserted_id
@@ -452,10 +455,10 @@ def get_managements():
 def create_management_profile():
     password = request.form.get('password')
     if not validate_password(password):
-        return jsonify('error : Not valid password')
+        return jsonify({"error": "Not valid Password."}), 400
     retype_password = request.form.get('retype_password')
     if password != retype_password:
-        return jsonify('error : Password does not match')
+        return jsonify({"error": "Password not matched."}), 400
     user_id = request.form.get('user_id', '')
     username = request.form.get('username', '')
     schoolkey = request.form.get('schoolkey')
@@ -648,15 +651,10 @@ def create_parent_profile():
     try:
         parent_password=request.form.get("parent_password", '')
         if not validate_password(parent_password):
-            return jsonify('error : Not valid password')
+            return jsonify({"error": "Not valid Password."}), 400
         retype_password = request.form.get('retype_password')
         if parent_password != retype_password:
-            return jsonify('error : Password does not match')
-        
-        code = generate_unique_code()
-        while code in mongo_t.db.parent_profile.find_one({'unique_code': code}):
-            code = generate_unique_code()
-
+            return jsonify({"error": "Password not matched."}), 400
         parent_useridname=request.form.get("parent_useridname", '')
         parent_password=request.form.get("parent_password", '')
         parent_name = request.form.get('parent_name', '')
@@ -696,7 +694,7 @@ def create_parent_profile():
         if useridname:
               return jsonify({"error": "This useridname is already exist"}), 400
         else:
-            create_parent(parent_useridname,parent_hashed_password,code,parent_name, user_image,parent_about, 
+            create_parent(parent_useridname,parent_hashed_password,parent_name, user_image,parent_about, 
                           parent_phone, parent_email, parent_StreetAddress,parent_age,parent_gender,parent_city,
                           parent_PostalCode,parent_country,parent_Apartment,parent_state)
 
@@ -756,13 +754,12 @@ def update_parent_profile(useridname):
 #database support function
 
 # save parent info in database
-def create_parent(parent_useridname,parent_hashed_password,code,parent_name, filename, parent_about, parent_phone, parent_email, parent_StreetAddress,parent_city,parent_PostalCode,parent_country,parent_Apartment,parent_state,parent_age,parent_gender):
+def create_parent(parent_useridname,parent_hashed_password,parent_name, filename, parent_about, parent_phone, parent_email, parent_StreetAddress,parent_city,parent_PostalCode,parent_country,parent_Apartment,parent_state,parent_age,parent_gender):
     parent_profile_collection.create_index([('parent_useridname', 1)], unique=True)
     parent_profile_collection.create_index([('personal_info.contact.parent_email', 1)], unique=True)
     parent_profile_collection.create_index([('personal_info.contact.parent_phone', 1)], unique=True)
     parent = parent_profile_collection.insert_one({
         "parent_useridname":parent_useridname,
-        "unique_code": code,
         "parent_hashed_password":parent_hashed_password,
         'parent_name': parent_name,
         "parent_age":parent_age,
@@ -779,6 +776,8 @@ def create_parent(parent_useridname,parent_hashed_password,code,parent_name, fil
                                    "parent_StreetAddress":parent_StreetAddress,
                                    "parent_Apartment":parent_Apartment,
                                    "parent_PostalCode":parent_PostalCode
+
+
                                    }
             }
         }
@@ -908,7 +907,7 @@ def update_teacher(user_id, user_data):
 # --------------- API METHODS --------------
 
 @app.route('/get_teachers', methods=['GET'])
-def get_teachers_profile():
+def get_teachers():
     teachers = get_teachers()
 
     for teacher in teachers:
@@ -925,52 +924,16 @@ def get_teacher_profile(user_id):
         return jsonify({'error': 'User does not exists!!'})
     return jsonify(user)
 
-@app.route('/connect_to_child/<parent_id>', methods=['GET', 'POST'])
-def connect_parent_to_child_function(parent_id):
-    child_code = request.form.get('child_code', '')
-
-    if child_code == '':
-        return jsonify({'error': 'Child code cannot be empty!!'})
-     
-    child = mongo_s.db.student_profile.find_one({ 'unique_code': child_code})
-    if not child:
-        return jsonify({'error': 'No student found of this name or code!!'})
-     
-    parent = mongo_p.db.parent_profile.find_one({'_id': parent_id})
-    if not parent:
-        return jsonify({'error': 'No parent found of this parent_id!!'})
-    
-    if 'children' not in parent:
-        parent['children'] = []
-
-    if str(child['_id']) not in parent['children']:
-        mongo_p.db.parent_profile.update_one(
-            {'_id': ObjectId(parent_id)},
-            {'$push': {'$each': [child['_id']]}}
-        )
-
-    if 'parents' not in child:
-        child['parents'] = []
-
-    if str(parent['_id']) not in child['parents']:
-        mongo_s.db.student_profile.update_one(
-            {'_id': ObjectId(child['_id'])},
-            {'$push': {'$each': [parent_id]}}
-        )
-
-    return jsonify({'msg': 'parent and student are connected now'})
-
-    
 
 @app.route('/create_teacher', methods=['GET', 'POST'])
 def create_teacher_profile():
     password = request.form.get('password')
     if not validate_password(password):
-        return jsonify('error : Not valid password')
+        return jsonify({"error": "Not valid Password."}), 400
     
     retype_password = request.form.get('retype_password')
     if password != retype_password:
-        return jsonify('error : Password does not match')
+        return jsonify({"error": "Password not matched."}), 400
     username = request.form.get('username', '')
     languages = request.form.get('languages', '')
 
