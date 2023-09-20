@@ -172,9 +172,38 @@ def validate_password(password):
      return True
 
 
-@app.route('/login', methods = [''])
+#login 
+@app.route('/login', methods=['POST'])
+def login():    
+    try:
+        username = request.json.get('username')
+        password = request.json.get('password')
+        if username.isdigit():
+            user_data = mongo_s.db.student_profile.find_one({'personal_info.contact.phone': username})
+            if user_data is None:
+                user_data = mongo_p.db.parent_profile.find_one({'personal_info.contact.parent_phone': username})
+            elif user_data is None:
+                user_data = mongo_t.db.teacher_profile.find_one({'profile.contact.phone': username})
+        else:
+            user_data = mongo_s.db.student_profile.find_one({'user_id': username})
+            if user_data is None:
+                user_data = mongo_p.db.parent_profile.find_one({'user_id': username})
+            elif user_data is None:
+                user_data = mongo_t.db.teacher_profile.find_one({'user_id': username})
+        print(user_data)
+        if user_data:
+            stored_password = user_data.get('password')
 
+            if check_password_hash(stored_password, password):
 
+                return jsonify(success=True, message='Login successful', ), 200
+            else:
+                return jsonify(success=False, message='Wrong Password'), 401
+        else:
+            return jsonify(success=False, message='Invalid credentials'), 401
+
+    except Exception as e:
+        return jsonify(success=False, message='Error during login: {}'.format(str(e))), 500
 
 
 # Create student profile 
@@ -272,16 +301,20 @@ def update_student_profile(user_id):
     try:
         user_data = mongo_s.db.student_profile.find_one({'user_id': user_id})
         _id = user_data['_id']
-        # Get user data from the request
         username = request.form.get('username', user_data['username'])
-        password = request.form.get('password', user_data['password'])
-        hashed_password = generate_password_hash(password)
+        password = request.form.get('password')
+        if not validate_password(password):
+            return jsonify({"error": "Not valid Password."}), 400
+        if password:
+            hashed_password = generate_password_hash(password)
+        else: 
+            hashed_password = user_data['password']
         user_id = request.form.get('user_id')
         if user_id:
             data = get_students()
             useridname=any(item['user_id'] == user_id for item in data)
             if useridname:
-                    return jsonify({"error": "This useridname is already exist"}), 400
+                return jsonify({"error": "This useridname is already exist"}), 400
         else:
              user_id = user_data['user_id']
         user_class = request.form.get('user_class', user_data['user_class'])
@@ -378,7 +411,6 @@ def setting_status_of_quizz(quiz_id, student_id):
 @app.route('/update_student_quiz_data/<string:quiz_id>/<string:student_id>/<string:result>/<string:click>', methods=['PUT'])
 def update_student_quiz_data(quiz_id, student_id, result, click):
     try:
-        # Find the student by student_id
         student = mongo_s.db.student_profile.find_one({"_id": student_id})
         
         if student:
@@ -395,7 +427,6 @@ def update_student_quiz_data(quiz_id, student_id, result, click):
                 quiz_entry['language'] = quiz.get('language', '')            
                 quiz_entry['result'] = result
                 quiz_entry['clicked_on'] = click
-                print(student)
 
                 # Update the student's document with the modified quiz_data
                 mongo_s.db.student_profile.update_one({"_id": student_id}, {"$set": student})
@@ -536,9 +567,11 @@ def update_management_profile(user_id):
         _id = user_data['_id']
         # Get user data from the request
         username = request.form.get('username', user_data['username'])
-        password = request.form.get('password', user_data['password'])
-        if request.form.get('password'):
+        password = request.form.get('password')
+        if password:
             hashed_password = generate_password_hash(password)
+        else:
+            hashed_password = user_data['password']
         user_id = request.form.get('user_id', user_data['user_id'])
 
         user_class = request.form.get('user_class', user_data['user_class'])
@@ -635,9 +668,7 @@ def get_parent_profile():
         "parent_about": parent["personal_info"]["parent_about"],
         "parent_phone": parent["personal_info"]["contact"]["parent_phone"],
         "parent_email": parent["personal_info"]["contact"]["parent_email"],
-        "parent_address": parent["personal_info"]["contact"]["parent_address"],
-        # "child_name":child_data['student_name'],
-        # "child_image":child_data["student_image"]
+        "parent_address": parent["personal_info"]["contact"]["parent_address"]
         }
         return jsonify(parent_info)
     else:
