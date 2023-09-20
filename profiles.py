@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request, session
 from pymongo import  errors
 import os
+import re
 import hashlib
 from bson import ObjectId
 from flask_pymongo import PyMongo
@@ -67,22 +68,22 @@ def search_by_mobile_number(number):
     query = {
         "personal_info.contact.phone": number
     }
-    if query:
-        matching_documents = mongo_s.db.student_profile.find(query)
+    matching_documents = mongo_s.db.student_profile.find(query)
+    if matching_documents:
         result = [document for document in matching_documents]
         return result
     query = {
         'profile.contact.phone': number
     }
-    if query:
-        matching_documents = mongo_t.db.teacher_profile.find(query)
+    matching_documents = mongo_t.db.teacher_profile.find(query)
+    if matching_documents: 
         result = [document for document in matching_documents]
         return result
     query = {
         "personal_info.contact.parent_phone": number
     }
-    if query:
-        matching_documents = mongo_p.db.parent_profile.find(query)
+    matching_documents = mongo_p.db.parent_profile.find(query)
+    if matching_documents:
         result = [document for document in matching_documents]
         return result
 
@@ -90,22 +91,22 @@ def search_by_email(email):
     query = {
         "personal_info.contact.email": email
     }
-    if query:
-        matching_documents = mongo_s.db.student_profile.find(query)
+    matching_documents = mongo_s.db.student_profile.find(query)
+    if matching_documents:
         result = [document for document in matching_documents]
         return result
     query = {
         'profile.contact.email': email
     }
-    if query:
-        matching_documents = mongo_t.db.teacher_profile.find(query)
+    matching_documents = mongo_t.db.teacher_profile.find(query)
+    if matching_documents:
         result = [document for document in matching_documents]
         return result
     query = {
         "personal_info.contact.parent_email": email
     }
-    if query:
-        matching_documents = mongo_p.db.parent_profile.find(query)
+    matching_documents = mongo_p.db.parent_profile.find(query)
+    if matching_documents:
         result = [document for document in matching_documents]
         return result
 
@@ -145,11 +146,34 @@ def hash_password(password):
     hashed_password = sha256.hexdigest()
     return hashed_password  
 
+def validate_password(password):
+     """
+     Validates password based on the following conditions:
+     - At least 8 characters long
+     - Contains at least one digit
+     - Contains at least one uppercase letter
+     - Contains at least one special character
+     """
+     if len(password) < 8:
+         return False
+     if not re.search("[0-9]", password):
+         return False
+     if not re.search("[A-Z]", password):
+         return False
+     # Assuming special characters are !@#$%^&*()-_+=
+     if not re.search("[!@#$%^&*()\-_+=]", password):
+         return False
+     return True
+
 
 # Create student profile 
 @app.route('/create_student_profile', methods=['POST'])
 def create_student_profile():
     password = request.form.get('password')
+    print(password)
+    if not validate_password(password):
+        return jsonify('error : Not valid password')
+    
     retype_password = request.form.get('retype_password')
     if password != retype_password:
         return jsonify('message : Password does not match')
@@ -173,9 +197,12 @@ def create_student_profile():
     
     data = get_students()
     user_image = ''
-    if request.form.get('image',''):
-        image = request.form.get('image','')
-        user_image = upload_image(image)
+    if 'image' in request.files:
+            image = request.files['image']
+            if image and allowed_file(image.filename):
+                user_image = upload_image(image)
+            else:
+                return jsonify({"message": "Invalid image or file format."}), 400
 
     performance = {} 
     Attendance = {}
@@ -256,9 +283,12 @@ def update_student_profile(user_id):
 
         # Optional: Handle the user image update
         user_image = ''
-        if request.form.get('image', user_data['user_image']):
-            image = request.form.get('image','')
-            user_image = upload_image(image)
+        if 'image' in request.files:
+                image = request.files['image', user_data['image']]
+                if image and allowed_file(image.filename):
+                    user_image = upload_image(image)
+                else:
+                    return jsonify({"message": "Invalid image or file format."}), 400
 
         user_data ={
                 'user_id':user_id,
@@ -412,6 +442,11 @@ def get_managements():
 @app.route('/create_management_profile', methods=['POST'])
 def create_management_profile():
     password = request.form.get('password')
+    if not validate_password(password):
+        return jsonify('error : Not valid password')
+    retype_password = request.form.get('retype_password')
+    if password != retype_password:
+        return jsonify('message : Password does not match')
     retype_password = request.form.get('retype_password')
     if password != retype_password:
         return jsonify('message : Password does not match')
@@ -432,9 +467,12 @@ def create_management_profile():
         return jsonify({'error': 'User ID already exists'}), 400
     
     user_image = ''
-    if request.form.get('image',''):
-        image = request.form.get('image','')
-        user_image = upload_image(image)
+    if 'image' in request.files:
+            image = request.files['image']
+            if image and allowed_file(image.filename):
+                user_image = upload_image(image)
+            else:
+                return jsonify({"message": "Invalid image or file format."}), 400
 
     school_performance = {} 
     data = get_managements()
@@ -504,9 +542,12 @@ def update_management_profile(user_id):
 
         # Optional: Handle the user image update
         user_image = ''
-        if request.form.get('image', user_data['user_image']):
-            image = request.form.get('image','')
-            user_image = upload_image(image)
+        if 'image' in request.files:
+                image = request.files['image',user_data['user_image']]
+                if image and allowed_file(image.filename):
+                    user_image = upload_image(image)
+                else:
+                    return jsonify({"message": "Invalid image or file format."}), 400
 
         user_data ={
                 'user_id':user_id,
@@ -599,6 +640,12 @@ def get_parent_profile():
 @app.route('/create_parent_profile', methods=['GET', 'POST'])
 def create_parent_profile():
     try:
+        parent_password=request.form.get("parent_password", '')
+        if not validate_password(parent_password):
+            return jsonify('error : Not valid password')
+        retype_password = request.form.get('retype_password')
+        if parent_password != retype_password:
+            return jsonify('message : Password does not match')
         parent_useridname=request.form.get("parent_useridname", '')
         parent_password=request.form.get("parent_password", '')
         parent_name = request.form.get('parent_name', '')
@@ -620,9 +667,12 @@ def create_parent_profile():
         parent_hashed_password = generate_password_hash(parent_password)
         
         user_image = ''
-        if request.form.get('image',''):
-            image = request.form.get('image','')
-            user_image = upload_image(image)
+        if 'image' in request.files:
+                image = request.files['image']
+                if image and allowed_file(image.filename):
+                    user_image = upload_image(image)
+                else:
+                    return jsonify({"message": "Invalid image or file format."}), 400
 
         email_exists = any(item['personal_info']['contact']['parent_email'] == parent_email for item in data)
         phone_exists = any(item['personal_info']['contact']['parent_phone'] == parent_phone for item in data)
@@ -646,10 +696,9 @@ def create_parent_profile():
 
 
 #update parent info
-@app.route('/update_parent/<string:useridname>', methods=['PUT', 'POST'])
+@app.route('/update_parent/<string:useridname>', methods=['PUT'])
 def update_parent_profile(useridname):
     parent_data = get_parent(useridname)
-    print(parent_data)
     if not parent_data:
         return jsonify({"error": "Parent not found"}), 404
     # Update parent information based on the received data
@@ -674,9 +723,13 @@ def update_parent_profile(useridname):
     parent_separate_data['parent_PostalCode'] = request.form.get('parent_PostalCode', parent_separate_data['parent_PostalCode'])
 
     user_image = ''
-    if request.form.get('image', parent_separate_data['user_image']):
-        image = request.form.get('image','')
-        user_image = upload_image(image)
+    if 'image' in request.files:
+            image = request.files['image', parent_data['image']]
+            if image and allowed_file(image.filename):
+                user_image = upload_image(image)
+                parent_data['image'] = user_image
+            else:
+                return jsonify({"message": "Invalid image or file format."}), 400
 
      # Update password if provided
     new_password = request.form.get('new_password')
@@ -865,13 +918,23 @@ def get_teacher_profile(user_id):
 
 @app.route('/create_teacher', methods=['GET', 'POST'])
 def create_teacher_profile():
+    password = request.form.get('password')
+    if not validate_password(password):
+        return jsonify('error : Not valid password')
+    
+    retype_password = request.form.get('retype_password')
+    if password != retype_password:
+        return jsonify('message : Password does not match')
     username = request.form.get('username', '')
     languages = request.form.get('languages', '')
 
     user_image = ''
-    if request.form.get('image',''):
-        image = request.form.get('image','')
-        user_image = upload_image(image)
+    if 'image' in request.files:
+            image = request.files['image']
+            if image and allowed_file(image.filename):
+                user_image = upload_image(image)
+            else:
+                return jsonify({"message": "Invalid image or file format."}), 400
 
     user_designation = request.form.get('user_designation', '')
     user_description = request.form.get('user_description', '')
@@ -983,9 +1046,12 @@ def update_user_profile(user_id):
     }
 
     user_image = ''
-    if request.form.get('image',''):
-        image = request.form.get('image','')
-        user_image = upload_image(image)
+    if 'image' in request.files:
+            image = request.files['image']
+            if image and allowed_file(image.filename):
+                user_image = upload_image(image)
+            else:
+                return jsonify({"message": "Invalid image or file format."}), 400
 
     status = {
         'user_designation': user_designation,
