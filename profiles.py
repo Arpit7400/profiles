@@ -56,10 +56,11 @@ mongo_m.db.management_profile.create_index([("personal_info.contact.email", 1)],
 # fetching all clases
 @app.route('/get_all_clases', methods = ['GET'])
 def get_all_classes():
-     
-
-
-
+    all_classes = []
+    datas = list(mongo.db.school_classes.find())
+    for cls in datas:
+        all_classes.append(cls['name'])
+    return all_classes
 
 
 # Student Profile 
@@ -151,13 +152,6 @@ def upload_image(image):
         return jsonify({"error": "Invalid image or file format."}), 400
 
 
-def hash_password(password):
-    # Create a new SHA-256 hash object
-    sha256 = hashlib.sha256()
-    sha256.update(password.encode('utf-8'))
-    hashed_password = sha256.hexdigest()
-    return hashed_password  
-
 def validate_password(password):
      """
      Validates password based on the following conditions:
@@ -182,7 +176,6 @@ def validate_password(password):
 @app.route('/create_student_profile', methods=['POST'])
 def create_student_profile():
     password = request.form.get('password')
-    print(password)
     if not validate_password(password):
         return jsonify({"error": "Not valid Password."}), 400
     
@@ -201,7 +194,7 @@ def create_student_profile():
     phone = request.form.get('phone', '')
     email = request.form.get('email', '')
     address = request.form.get('address', '')
-    hashed_password = hash_password(password)
+    hashed_password = generate_password_hash(password)
     parents = request.form.get('parents', '')
 
     if not is_student_user_id_unique(user_id):
@@ -218,7 +211,6 @@ def create_student_profile():
 
     performance = {} 
     Attendance = {}
-    Interest = {}
     parents = {}
 
     email_exists = any(item['personal_info']['contact']['email'] == email for item in data)
@@ -237,6 +229,7 @@ def create_student_profile():
             'user_id':user_id,
             'password': hashed_password,
             'username': username,
+            'role':"student",
             'user_class': user_class,
             'schoolkey': schoolkey,
             'gender': gender,
@@ -254,13 +247,12 @@ def create_student_profile():
             },
             'performance': performance,
             'Attendance': Attendance,
-            'Interest': Interest,
             'parents': parents
         }
         try:
             inserted_id = mongo_s.db.student_profile.insert_one(user_data).inserted_id
             inserted = mongo_s.db.student_profile.find_one({"_id": inserted_id})
-            return jsonify({"_id": str(inserted["_id"])})
+            return jsonify({"_id": str(inserted["_id"]), 'user_id':user_id,})
         except Exception as e:
             return jsonify({"error": "Error occurred while creating the class"}), 500
 
@@ -278,9 +270,15 @@ def update_student_profile(user_id):
         # Get user data from the request
         username = request.form.get('username', user_data['username'])
         password = request.form.get('password', user_data['password'])
-        hashed_password = hash_password(password)
-        user_id = request.form.get('user_id', user_data['user_id'])
-
+        hashed_password = generate_password_hash(password)
+        user_id = request.form.get('user_id')
+        if user_id:
+            data = get_students()
+            useridname=any(item['user_id'] == user_id for item in data)
+            if useridname:
+                    return jsonify({"error": "This useridname is already exist"}), 400
+        else:
+             user_id = user_data['user_id']
         user_class = request.form.get('user_class', user_data['user_class'])
         status_title = request.form.get('status_title', user_data['status_title'])
         status_description = request.form.get('status_description', user_data['status_description'])
@@ -288,20 +286,18 @@ def update_student_profile(user_id):
         phone = request.form.get('phone', user_data['personal_info']['contact']['phone'])
         email = request.form.get('email', user_data['personal_info']['contact']['email'])
         address = request.form.get('address', user_data['personal_info']['contact']['address'])
-        performance = request.form.get('performance', user_data['performance'])
-        Interest = request.form.get('Interest', user_data['Interest'])
-        Attendance = request.form.get('Attendance', user_data['Attendance'])
         parents = request.form.get('parents', user_data['parents'])
 
         # Optional: Handle the user image update
         user_image = ''
-        if 'image' in request.files:
-                image = request.files['image', user_data['image']]
+        if 'user_image' in request.files:
+                image = request.files['user_image']
                 if image and allowed_file(image.filename):
                     user_image = upload_image(image)
                 else:
                     return jsonify({"error": "Invalid image or file format."}), 400
-
+        else:
+             user_image = user_data['user_image']
         user_data ={
                 'user_id':user_id,
                 'username': username,
@@ -318,9 +314,6 @@ def update_student_profile(user_id):
                         'address': address
                     }
                 },
-                'performance': performance,
-                'Attendance': Attendance,
-                'Interest': Interest,
                 'parents': parents
             }
         result = mongo_s.db.student_profile.update_one({"_id":_id},
@@ -470,7 +463,7 @@ def create_management_profile():
     phone = request.form.get('phone', '')
     email = request.form.get('email', '')
     address = request.form.get('address', '')
-    hashed_password = hash_password(password)
+    hashed_password = generate_password_hash(password)
 
     if not is_management_user_id_unique(user_id):
         return jsonify({'error': 'User ID already exists'}), 400
@@ -538,7 +531,8 @@ def update_management_profile(user_id):
         # Get user data from the request
         username = request.form.get('username', user_data['username'])
         password = request.form.get('password', user_data['password'])
-        hashed_password = hash_password(password)
+        if request.form.get('password'):
+            hashed_password = generate_password_hash(password)
         user_id = request.form.get('user_id', user_data['user_id'])
 
         user_class = request.form.get('user_class', user_data['user_class'])
@@ -551,12 +545,14 @@ def update_management_profile(user_id):
 
         # Optional: Handle the user image update
         user_image = ''
-        if 'image' in request.files:
-                image = request.files['image',user_data['user_image']]
+        if 'user_image' in request.files:
+                image = request.files['user_image']
                 if image and allowed_file(image.filename):
                     user_image = upload_image(image)
                 else:
                     return jsonify({"error": "Invalid image or file format."}), 400
+        else:
+             user_image = user_data['user_image']
 
         user_data ={
                 'user_id':user_id,
@@ -584,9 +580,6 @@ def update_management_profile(user_id):
     except errors.PyMongoError as e:
         return jsonify({"error": str(e)}), 500
     
-
-
-
 
 
 
@@ -730,15 +723,15 @@ def update_parent_profile(useridname):
     parent_separate_data['parent_StreetAddress'] = request.form.get('parent_StreetAddress', parent_separate_data['parent_StreetAddress'])
     parent_separate_data['parent_Apartment'] = request.form.get('parent_Apartment', parent_separate_data['parent_Apartment'])
     parent_separate_data['parent_PostalCode'] = request.form.get('parent_PostalCode', parent_separate_data['parent_PostalCode'])
-
     user_image = ''
     if 'image' in request.files:
-            image = request.files['image', parent_data['image']]
+            image = request.files['image']
             if image and allowed_file(image.filename):
                 user_image = upload_image(image)
-                parent_data['image'] = user_image
+                parent_data['user_image'] = user_image
             else:
                 return jsonify({"error": "Invalid image or file format."}), 400
+
 
      # Update password if provided
     new_password = request.form.get('new_password')
@@ -906,8 +899,8 @@ def update_teacher(user_id, user_data):
 
 # --------------- API METHODS --------------
 
-@app.route('/get_teachers', methods=['GET'])
-def get_teachers():
+@app.route('/get_teachers_profile', methods=['GET'])
+def get_teachers_profile():
     teachers = get_teachers()
 
     for teacher in teachers:
@@ -944,6 +937,7 @@ def create_teacher_profile():
                 user_image = upload_image(image)
             else:
                 return jsonify({"error": "Invalid image or file format."}), 400
+
 
     user_designation = request.form.get('user_designation', '')
     user_description = request.form.get('user_description', '')
@@ -1002,9 +996,9 @@ def create_teacher_profile():
         'profile': profile
     }
     data = get_teachers()
-    email_exists = any(item['personal_info']['contact']['email'] == email for item in data)
-    phone_exists = any(item['personal_info']['contact']['phone'] == phone for item in data)
-    useridname=any(item['user_id'] == userid_name for item in data)
+    email_exists = any(item['profile']['contact']['email'] == email for item in data)
+    phone_exists = any(item['profile']['contact']['phone'] == phone for item in data)
+    useridname=any(item['profile']['useridname_password']['userid_name'] == userid_name for item in data)
 
     if email_exists:
             return jsonify({"error": "This email is already exist"}), 400
@@ -1035,7 +1029,10 @@ def update_user_profile(user_id):
     about = request.form.get('user_about', user_data['profile']['about'])
 
     userid_name = request.form.get('userid_name',  user_data['profile']['useridname_password']['userid_name'])
-    password = request.form.get('password',  user_data['profile']['useridname_password']['password'])
+    if request.form.get('password'):
+        password = generate_password_hash(request.form.get('password'))
+    else:
+        password = user_data['profile']['useridname_password']['password']
 
     phone = request.form.get('phone', user_data['profile']['contact']['phone'])
     email = request.form.get('email', user_data['profile']['contact']['email'])
@@ -1061,6 +1058,8 @@ def update_user_profile(user_id):
                 user_image = upload_image(image)
             else:
                 return jsonify({"error": "Invalid image or file format."}), 400
+    else:
+        user_image = user_data['user_image']
 
     status = {
         'user_designation': user_designation,
