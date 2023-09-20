@@ -197,8 +197,8 @@ def create_student_profile():
     
     data = get_students()
     user_image = ''
-    if 'image' in request.files:
-            image = request.files['image']
+    if 'user_image' in request.files:
+            image = request.files['user_image']
             if image and allowed_file(image.filename):
                 user_image = upload_image(image)
             else:
@@ -467,8 +467,8 @@ def create_management_profile():
         return jsonify({'error': 'User ID already exists'}), 400
     
     user_image = ''
-    if 'image' in request.files:
-            image = request.files['image']
+    if 'user_image' in request.files:
+            image = request.files['user_image']
             if image and allowed_file(image.filename):
                 user_image = upload_image(image)
             else:
@@ -667,8 +667,8 @@ def create_parent_profile():
         parent_hashed_password = generate_password_hash(parent_password)
         
         user_image = ''
-        if 'image' in request.files:
-                image = request.files['image']
+        if 'user_image' in request.files:
+                image = request.files['user_image']
                 if image and allowed_file(image.filename):
                     user_image = upload_image(image)
                 else:
@@ -929,8 +929,8 @@ def create_teacher_profile():
     languages = request.form.get('languages', '')
 
     user_image = ''
-    if 'image' in request.files:
-            image = request.files['image']
+    if 'user_image' in request.files:
+            image = request.files['user_image']
             if image and allowed_file(image.filename):
                 user_image = upload_image(image)
             else:
@@ -1046,8 +1046,8 @@ def update_user_profile(user_id):
     }
 
     user_image = ''
-    if 'image' in request.files:
-            image = request.files['image']
+    if 'user_image' in request.files:
+            image = request.files['user_image']
             if image and allowed_file(image.filename):
                 user_image = upload_image(image)
             else:
